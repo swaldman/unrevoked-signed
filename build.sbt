@@ -15,7 +15,3 @@ val nexusReleases = nexus + "service/local/staging/deploy/maven2";
 resolvers += ("releases" at nexusReleases)
 
 resolvers += ("snapshots" at nexusSnapshots)
-
-
-
-

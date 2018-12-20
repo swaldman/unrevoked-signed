@@ -4,6 +4,7 @@ contract UnrevokedSigned {
   bytes32 constant Revoked = hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
   mapping( bytes32 => address[] ) private documentSigners;
+  mapping( address => bytes32[] ) private signerDocuments;
   mapping( address => bytes32   ) private signerProfiles;
 
   function createIdentityForSender( bytes32 profileHash ) public {
@@ -14,6 +15,7 @@ contract UnrevokedSigned {
     // no requirements here. we conservatively always accept a revocation
     // even of an unknown identity
     signerProfiles[ msg.sender ] = Revoked;
+    delete signerDocuments[ msg.sender ];
   }
   function isProfileForSigner( address signer, bytes32 profileHash ) public view returns ( bool isProfile ) {
     isProfile = signerProfiles[ signer ] == profileHash;
@@ -39,6 +41,7 @@ contract UnrevokedSigned {
     }
     if (!check) {
        currentSigners.push( msg.sender );
+       signerDocuments[ msg.sender ].push( documentHash );
     }
   }
   function countSigners( bytes32 documentHash ) public view returns ( uint count ) {
@@ -51,5 +54,13 @@ contract UnrevokedSigned {
     profileHash = signerProfiles[signer];
     require( profileHash != 0, "We should never find document signers with an unset profile hash!" );
     valid = profileHash != Revoked;
+  }
+  function countDocuments( address signer ) public view returns ( uint count ) {
+    require( isValidSigner( signer ) );
+    count = signerDocuments[ signer ].length;
+  }
+  function fetchDocument( address signer, uint index ) public view returns ( bytes32 hash ) {
+    require( isValidSigner( signer ) );
+    hash = signerDocuments[ signer ][ index ];
   }
 }
