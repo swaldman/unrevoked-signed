@@ -1,24 +1,32 @@
-val nexus = "https://oss.sonatype.org/"
-val nexusSnapshots = nexus + "content/repositories/snapshots";
-val nexusReleases = nexus + "service/local/staging/deploy/maven2";
+val Nexus = "https://oss.sonatype.org/"
+val NexusSnapshots = Nexus + "content/repositories/snapshots";
+val NexusReleases = Nexus + "service/local/staging/deploy/maven2";
 
 ThisBuild / organization := "com.mchange"
 ThisBuild / version := "0.0.1-SNAPSHOT"
-ThisBuild / resolvers += ("releases" at nexusReleases)
-ThisBuild / resolvers += ("snapshots" at nexusSnapshots)
+ThisBuild / resolvers += ("releases" at NexusReleases)
+ThisBuild / resolvers += ("snapshots" at NexusSnapshots)
 
 lazy val root = (project in file(".")).settings (
-  name := "unrevoked-signed",
+  name                    := "unrevoked-signed",
   ethcfgScalaStubsPackage := "com.mchange.sc.v1.unrevokedsigned.contract",
-  publishTo := findPublishTo( version.value ),
-  pomExtra := createPomExtra( name.value )
+  publishTo               := findPublishTo( version.value ),
+  pomExtra                := createPomExtra( name.value )
+)
+
+lazy val plugin = (project in file("plugin")).aggregate(root).dependsOn( root ).settings (
+  name                   := "unrevoked-signed-plugin",
+  sbtPlugin              := true,
+  publishTo              := findPublishTo( version.value ),
+  pomExtra               := createPomExtra( name.value ),
+  addSbtPlugin("com.mchange" % "sbt-ethereum" % "0.1.7-SNAPSHOT" changing())
 )
 
 def findPublishTo( version : String ) = {
   if (version.trim.endsWith("SNAPSHOT"))
-    Some("snapshots" at nexusSnapshots )
+    Some("snapshots" at NexusSnapshots )
   else
-    Some("releases"  at nexusReleases )
+    Some("releases"  at NexusReleases )
 }
 
 def createPomExtra( projectName : String ) = (
