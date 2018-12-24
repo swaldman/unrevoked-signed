@@ -35,7 +35,7 @@ object UnrevokedSignedPlugin extends AutoPlugin {
     val storeSignJpegDocument      = inputKey[EthHash]("Creates a document marked signed by the current sbt-ethereum sender from a given file path, as 'image/jpeg'" )
     val storeSignPngDocument       = inputKey[EthHash]("Creates a document marked signed by the current sbt-ethereum sender from a given file path, as 'image/png'" )
 
-    val profileForSigner = inputKey[EthHash]("Finds the profile document for a given signer (Ethereum address).")
+    val profileForSigner = inputKey[Option[EthHash]]("Finds the profile document for a given signer (Ethereum address).")
   }
 
   import autoImport._
@@ -98,7 +98,7 @@ object UnrevokedSignedPlugin extends AutoPlugin {
     hash
   }
 
-  def findProfileForSigner( config : Configuration ) : Initialize[InputTask[EthHash]] = {
+  def findProfileForSigner( config : Configuration ) : Initialize[InputTask[Option[EthHash]]] = {
     val parserGen = parserGeneratorForAddress( "<signer-address>" )
     val parser = Defaults.loadForParser( config / xethFindCacheRichParserInfo )( parserGen )
 
@@ -115,17 +115,26 @@ object UnrevokedSignedPlugin extends AutoPlugin {
       val stub = UnrevokedSigned( contractAddress )
 
       val profileHash = EthHash.withBytes( stub.constant.profileHashForSigner( signerAddress ).widen )
-      val ( contentType, profileBytes ) = store.get( profileHash ).assert
 
-      println( s"Content-Type: ${contentType}" )
-      println()
+      val mbTup = store.get( profileHash ).assert
 
-      contentType match {
-        case "text/plain" => println( new String( profileBytes.toArray, java.nio.charset.StandardCharsets.UTF_8 ) )
-        case _            => println( s"0x${profileBytes.hex}" )
+      mbTup match {
+        case Some( Tuple2( contentType, profileBytes )  ) => { 
+          println( s"Content-Type: ${contentType}" )
+          println()
+
+          contentType match {
+            case "text/plain" => println( new String( profileBytes.toArray, java.nio.charset.StandardCharsets.UTF_8 ) )
+            case _            => println( s"0x${profileBytes.hex}" )
+          }
+
+          Some( profileHash )
+        }
+        case None => {
+          log.warn( s"No profile found for hash '0x${profileHash.hex}'." )
+          None
+        }
       }
-
-      profileHash
     }
   }
 

@@ -10,7 +10,7 @@ import com.mchange.sc.v2.lang.borrow
 
 import com.mchange.sc.v3.failable._
 
-import java.io.{File, BufferedInputStream, FileInputStream}
+import java.io.{File, BufferedInputStream, FileInputStream, FileNotFoundException}
 
 import java.util.Base64
 
@@ -42,14 +42,17 @@ object DataStore {
       dataHash
     }
 
-    def get( key : EthHash ) : Failable[Tuple2[String,immutable.Seq[Byte]]] = Failable {
+    def get( key : EthHash ) : Failable[Option[Tuple2[String,immutable.Seq[Byte]]]] = Failable {
       val file = new File( dir, key.hex )
       val record = borrow( new BufferedInputStream( new FileInputStream( file ) ) )( Json.parse ).as[JsonFileBased.Record]
       val rawData = Base64.getDecoder().decode( record.dataBase64 ).toImmutableSeq
 
       assert( EthHash.hash(rawData) == key, s"File '${file.getAbsolutePath}' corrupted! The hash of the loaded data does not match the file name!" )
 
-      ( record.contentType, rawData )
+      Some( Tuple2( record.contentType, rawData ) )
+    } recoverWith {
+      case Failed( fnfe : FileNotFoundException ) => Failable.succeed( None )
+      case other                                  => other
     }
 
     def contains( key : EthHash ) : Failable[Boolean] = Failable {
@@ -60,6 +63,6 @@ object DataStore {
 }
 trait DataStore {
   def put( contentType : String, data : scala.Seq[Byte] ) : Failable[EthHash]
-  def get( key : EthHash )                                : Failable[Tuple2[String,immutable.Seq[Byte]]]
+  def get( key : EthHash )                                : Failable[Option[Tuple2[String,immutable.Seq[Byte]]]]
   def contains( key : EthHash )                           : Failable[Boolean]
 }
