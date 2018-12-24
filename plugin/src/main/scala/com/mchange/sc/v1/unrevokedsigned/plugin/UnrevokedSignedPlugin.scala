@@ -20,6 +20,10 @@ import com.mchange.sc.v1.unrevokedsigned.contract._
 
 object UnrevokedSignedPlugin extends AutoPlugin {
 
+  val EthHashZero = {
+    EthHash.withBytes( Array.fill(32)(0.toByte) )
+  }
+
   object autoImport {
     val unrevokedSignedContractAddress = settingKey[String]("The address of the on-blockchain UnrevokedSigned contract. (Be sure to appropriately define ethNodeChainId and ethNodeUrl.)")
 
@@ -116,23 +120,29 @@ object UnrevokedSignedPlugin extends AutoPlugin {
 
       val profileHash = EthHash.withBytes( stub.constant.profileHashForSigner( signerAddress ).widen )
 
-      val mbTup = store.get( profileHash ).assert
+      if ( profileHash == EthHashZero ) {
+        log.warn( s"No profile defined for address '0x${signerAddress.hex}'." )
+        None
+      }
+      else {
+        val mbTup = store.get( profileHash ).assert
 
-      mbTup match {
-        case Some( Tuple2( contentType, profileBytes )  ) => { 
-          println( s"Content-Type: ${contentType}" )
-          println()
+        mbTup match {
+          case Some( Tuple2( contentType, profileBytes )  ) => {
+            println( s"Content-Type: ${contentType}" )
+            println()
 
-          contentType match {
-            case "text/plain" => println( new String( profileBytes.toArray, java.nio.charset.StandardCharsets.UTF_8 ) )
-            case _            => println( s"0x${profileBytes.hex}" )
+            contentType match {
+              case "text/plain" => println( new String( profileBytes.toArray, java.nio.charset.StandardCharsets.UTF_8 ) )
+              case _            => println( s"0x${profileBytes.hex}" )
+            }
+
+            Some( profileHash )
           }
-
-          Some( profileHash )
-        }
-        case None => {
-          log.warn( s"No profile found for hash '0x${profileHash.hex}'." )
-          None
+          case None => {
+            log.warn( s"No profile found for hash '0x${profileHash.hex}'." )
+            None
+          }
         }
       }
     }
