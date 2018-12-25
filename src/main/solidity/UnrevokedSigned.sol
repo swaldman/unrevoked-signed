@@ -21,7 +21,6 @@ contract UnrevokedSigned {
     isProfile = signerProfiles[ signer ] == profileHash;
   }
   function profileHashForSigner( address signer ) public view returns ( bytes32 profileHash ) {
-    require( signerProfiles[ msg.sender ] != 0, "No signer identity has been created for this address." );
     profileHash = signerProfiles[ signer ];
   }
   function isValidSigner( address signer ) public view returns ( bool isValid ) {

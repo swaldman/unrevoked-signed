@@ -33,7 +33,8 @@ object DataStore {
       val dataHash = EthHash.hash( data )
       val newFile = new File( dir, dataHash.hex )
 
-      require( !newFile.exists , s"Cannot put, file '${newFile.getAbsolutePath}' already exists." )
+      // don't do this, overwrite so that (valid) puts are idempotent
+      // require( !newFile.exists , s"Cannot put, file '${newFile.getAbsolutePath}' already exists." )
 
       val dataBase64 = Base64.getEncoder().encodeToString( data.toArray )
       val jsonText = Json.stringify( Json.toJson( JsonFileBased.Record( contentType, dataBase64 ) ) )

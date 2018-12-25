@@ -15,14 +15,13 @@ import sbt.complete.DefaultParsers._
 
 import com.mchange.sc.v1.sbtethereum.SbtEthereumPlugin
 import com.mchange.sc.v1.sbtethereum.SbtEthereumPlugin.autoImport._
+import com.mchange.sc.v1.unrevokedsigned
 import com.mchange.sc.v1.unrevokedsigned._
 import com.mchange.sc.v1.unrevokedsigned.contract._
 
-object UnrevokedSignedPlugin extends AutoPlugin {
+import scala.collection._
 
-  val EthHashZero = {
-    EthHash.withBytes( Array.fill(32)(0.toByte) )
-  }
+object UnrevokedSignedPlugin extends AutoPlugin {
 
   object autoImport {
     val unrevokedSignedContractAddress = settingKey[String]("The address of the on-blockchain UnrevokedSigned contract. (Be sure to appropriately define ethNodeChainId and ethNodeUrl.)")
@@ -40,6 +39,8 @@ object UnrevokedSignedPlugin extends AutoPlugin {
     val storeSignPngDocument       = inputKey[EthHash]("Creates a document marked signed by the current sbt-ethereum sender from a given file path, as 'image/png'" )
 
     val profileForSigner = inputKey[Option[EthHash]]("Finds the profile document for a given signer (Ethereum address).")
+
+    val signersForDocument = inputKey[immutable.Seq[Tuple2[EthAddress,EthHash]]]("Finds the valid signers of a document at a given file path.")
   }
 
   import autoImport._
@@ -53,8 +54,43 @@ object UnrevokedSignedPlugin extends AutoPlugin {
     Compile / storeSignJsonDocument := { storeSignDocument( "application/json" )( Compile ).evaluated },
     Compile / storeSignJpegDocument := { storeSignDocument( "image/jpeg" )( Compile ).evaluated },
     Compile / storeSignPngDocument := { storeSignDocument( "image/png" )( Compile ).evaluated },
-    Compile / profileForSigner := { findProfileForSigner( Compile ).evaluated }
+    Compile / profileForSigner := { findProfileForSigner( Compile ).evaluated },
+    Compile / signersForDocument := { signersForDocumentTask( Compile ).evaluated }
   )
+
+  def signersForDocumentTask( config : Configuration ) : Initialize[InputTask[immutable.Seq[Tuple2[EthAddress,EthHash]]]] = Def.inputTask {
+    val log = streams.value.log
+    val store = dataStore.value
+
+    val contractAddress = unrevokedSignedContractAddress.value
+
+    implicit val ( sctx, ssender ) = (config / xethStubEnvironment).value
+
+    val filePath = (token(Space.+) ~> token( NotSpace ).examples("<file-path-to-document>")).parsed
+
+    val documentBytes = {
+      import java.nio.file._
+      Files.readAllBytes( Paths.get(filePath) ).toImmutableSeq
+    }
+    val docHash = EthHash.hash( documentBytes )
+
+    val us = UnrevokedSigned( contractAddress )
+
+    val solDocHash = sol.Bytes32( docHash.bytes )
+
+    val len = us.constant.countSigners( solDocHash ).widen.toInt
+    val tups = ( 0 until len ).map( i => us.constant.fetchSigner( solDocHash, sol.UInt256(i) ) )
+    val signers = {
+      tups
+        .filter { case ( signerAddr, valid, profileHash ) => valid }
+        .map { case ( signerAddr, valid, profileHash ) => Tuple2( signerAddr, profileHash ) }
+    }
+    println( s"There are ${len} signers of document with hash '0x${docHash.hex}'." )
+    signers.foreach { case (signerAddr, profileHash) =>
+      println( s"  + Signer: '0x${signerAddr.hex}', Profile Hash: '0x${profileHash.widen.hex}'" )
+    }
+    signers.map { case (signerAddr, profileHash) => ( signerAddr, EthHash.withBytes(profileHash.widen) ) }
+  }
 
   def createProfile( contentType : String )( config : Configuration ) : Initialize[InputTask[EthHash]] = Def.inputTask {
     val log = streams.value.log
@@ -70,12 +106,12 @@ object UnrevokedSignedPlugin extends AutoPlugin {
       import java.nio.file._
       Files.readAllBytes( Paths.get(filePath) ).toImmutableSeq
     }
-    val stub = UnrevokedSigned( contractAddress )
+    val us = UnrevokedSigned( contractAddress )
 
     val hash = store.put( contentType, profileBytes ).assert
-    stub.transaction.createIdentityForSender( sol.Bytes32( hash.bytes ) )
+    us.transaction.createIdentityForSender( sol.Bytes32( hash.bytes ) )
 
-    log.info( s"The document at path '${filePath}' has been stored, and defined as the profile for sender address '0x${ssender.address}' on contract at '0x${contractAddress}'." )
+    log.info( s"The document at path '${filePath}' with hash '0x${hash.hex}' has been stored, and defined as the profile for sender address '0x${ssender.address.hex}' on contract at '0x${contractAddress.hex}'." )
     hash
   }
 
@@ -93,10 +129,10 @@ object UnrevokedSignedPlugin extends AutoPlugin {
       import java.nio.file._
       Files.readAllBytes( Paths.get(filePath) ).toImmutableSeq
     }
-    val stub = UnrevokedSigned( contractAddress )
+    val us = UnrevokedSigned( contractAddress )
 
     val hash = store.put( contentType, documentBytes ).assert
-    stub.transaction.markSigned( sol.Bytes32( hash.bytes ) )
+    us.transaction.markSigned( sol.Bytes32( hash.bytes ) )
 
     log.info( s"The document at path '${filePath}' has been stored, and is marked signed for sender address '0x${ssender.address}' on contract at '0x${contractAddress}'." )
     hash
@@ -116,11 +152,11 @@ object UnrevokedSignedPlugin extends AutoPlugin {
 
       val signerAddress = parser.parsed
 
-      val stub = UnrevokedSigned( contractAddress )
+      val us = UnrevokedSigned( contractAddress )
 
-      val profileHash = EthHash.withBytes( stub.constant.profileHashForSigner( signerAddress ).widen )
+      val profileHash = EthHash.withBytes( us.constant.profileHashForSigner( signerAddress ).widen )
 
-      if ( profileHash == EthHashZero ) {
+      if ( profileHash == unrevokedsigned.Hash.Zero ) {
         log.warn( s"No profile defined for address '0x${signerAddress.hex}'." )
         None
       }
