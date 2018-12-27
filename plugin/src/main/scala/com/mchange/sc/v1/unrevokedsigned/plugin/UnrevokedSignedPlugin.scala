@@ -62,7 +62,7 @@ object UnrevokedSignedPlugin extends AutoPlugin {
     Compile / signersForDocument := { signersForDocumentTask( Compile ).evaluated }
   )
 
-  def signersForDocumentTask( config : Configuration ) : Initialize[InputTask[immutable.Seq[Tuple2[EthAddress,EthHash]]]] = Def.inputTask {
+  private def signersForDocumentTask( config : Configuration ) : Initialize[InputTask[immutable.Seq[Tuple2[EthAddress,EthHash]]]] = Def.inputTask {
     val log = streams.value.log
     val store = dataStore.value
 
@@ -72,9 +72,12 @@ object UnrevokedSignedPlugin extends AutoPlugin {
 
     val filePath = (token(Space.+) ~> token( NotSpace ).examples("<file-path-to-document>")).parsed
 
+    val normalizer = Normalizer.choose( None, Some(filePath) )
+
     val documentBytes = {
       import java.nio.file._
-      Files.readAllBytes( Paths.get(filePath) ).toImmutableSeq
+      val raw = Files.readAllBytes( Paths.get(filePath) )
+      normalizer( raw ).toImmutableSeq
     }
     val docHash = EthHash.hash( documentBytes )
 
@@ -96,7 +99,7 @@ object UnrevokedSignedPlugin extends AutoPlugin {
     signers.map { case (signerAddr, profileHash) => ( signerAddr, EthHash.withBytes(profileHash.widen) ) }
   }
 
-  def createProfile( contentType : String )( config : Configuration ) : Initialize[InputTask[EthHash]] = Def.inputTask {
+  private def createProfile( contentType : String )( config : Configuration ) : Initialize[InputTask[EthHash]] = Def.inputTask {
     val log = streams.value.log
     val store = dataStore.value
 
@@ -106,9 +109,12 @@ object UnrevokedSignedPlugin extends AutoPlugin {
 
     val filePath = (token(Space.+) ~> token( NotSpace ).examples("<file-path-to-profile>")).parsed
 
+    val normalizer = Normalizer.choose( Some( contentType ), Some( filePath ) )
+
     val profileBytes = {
       import java.nio.file._
-      Files.readAllBytes( Paths.get(filePath) ).toImmutableSeq
+      val raw = Files.readAllBytes( Paths.get(filePath) )
+      normalizer( raw ).toImmutableSeq
     }
     val us = UnrevokedSigned( contractAddress )
 
@@ -119,7 +125,7 @@ object UnrevokedSignedPlugin extends AutoPlugin {
     hash
   }
 
-  def storeSignDocument( contentType : String )( config : Configuration ) : Initialize[InputTask[EthHash]] = Def.inputTask {
+  private def storeSignDocument( contentType : String )( config : Configuration ) : Initialize[InputTask[EthHash]] = Def.inputTask {
     val log = streams.value.log
     val store = dataStore.value
 
@@ -129,9 +135,12 @@ object UnrevokedSignedPlugin extends AutoPlugin {
 
     val filePath = (token(Space.+) ~> token( NotSpace ).examples("<file-path-to-document>")).parsed
 
+    val normalizer = Normalizer.choose( Some( contentType ), Some( filePath ) )
+
     val documentBytes = {
       import java.nio.file._
-      Files.readAllBytes( Paths.get(filePath) ).toImmutableSeq
+      val raw = Files.readAllBytes( Paths.get(filePath) )
+      normalizer( raw ).toImmutableSeq
     }
     val us = UnrevokedSigned( contractAddress )
 
@@ -142,7 +151,7 @@ object UnrevokedSignedPlugin extends AutoPlugin {
     hash
   }
 
-  def findProfileForSigner( config : Configuration ) : Initialize[InputTask[Option[EthHash]]] = {
+  private def findProfileForSigner( config : Configuration ) : Initialize[InputTask[Option[EthHash]]] = {
     val parserGen = parserGeneratorForAddress( "<signer-address>" )
     val parser = Defaults.loadForParser( config / xethFindCacheRichParserInfo )( parserGen )
 

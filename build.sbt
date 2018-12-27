@@ -19,6 +19,8 @@ lazy val plugin = (project in file("plugin")).aggregate(root).dependsOn( root ).
   sbtPlugin := true,
   publishTo := findPublishTo( version.value ),
   pomExtra  := createPomExtra( name.value ),
+
+  libraryDependencies += "com.typesafe.play" %% "play-json" % "2.6.13",
   addSbtPlugin("com.mchange" % "sbt-ethereum" % "0.1.7-SNAPSHOT" changing())
 )
 
