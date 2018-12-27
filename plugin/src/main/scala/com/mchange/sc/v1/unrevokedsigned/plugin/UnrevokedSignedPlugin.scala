@@ -32,11 +32,13 @@ object UnrevokedSignedPlugin extends AutoPlugin {
     val createJsonProfile      = inputKey[EthHash]("Creates a profile for the current sbt-ethereum sender from a given file path, as 'application/json', normalizing to no-space text")
     val createJpegProfile      = inputKey[EthHash]("Creates a profile for the current sbt-ethereum sender from a given file path, as 'image/jpeg'" )
     val createPngProfile       = inputKey[EthHash]("Creates a profile for the current sbt-ethereum sender from a given file path, as 'image/png'" )
+    val createPdfProfile       = inputKey[EthHash]("Creates a profile for the current sbt-ethereum sender from a given file path, as 'application/pdf'" )
 
     val storeSignPlaintextDocument = inputKey[EthHash]("Creates a document marked signed by the current sbt-ethereum sender from a given file path, as 'text/plain']")
     val storeSignJsonDocument      = inputKey[EthHash]("Creates a document marked signed by the current sbt-ethereum sender from a given file path, as 'application/json', normalizing to no-space text")
     val storeSignJpegDocument      = inputKey[EthHash]("Creates a document marked signed by the current sbt-ethereum sender from a given file path, as 'image/jpeg'" )
     val storeSignPngDocument       = inputKey[EthHash]("Creates a document marked signed by the current sbt-ethereum sender from a given file path, as 'image/png'" )
+    val storeSignPdfDocument       = inputKey[EthHash]("Creates a document marked signed by the current sbt-ethereum sender from a given file path, as 'application/pdf'" )
 
     val profileForSigner = inputKey[Option[EthHash]]("Finds the profile document for a given signer (Ethereum address).")
 
@@ -50,10 +52,12 @@ object UnrevokedSignedPlugin extends AutoPlugin {
     Compile / createJsonProfile := { createProfile( "application/json" )( Compile ).evaluated },
     Compile / createJpegProfile := { createProfile( "image/jpeg" )( Compile ).evaluated },
     Compile / createPngProfile := { createProfile( "image/png" )( Compile ).evaluated },
+    Compile / createPdfProfile := { createProfile( "application/pdf" )( Compile ).evaluated },
     Compile / storeSignPlaintextDocument := { storeSignDocument( "text/plain" )( Compile ).evaluated },
     Compile / storeSignJsonDocument := { storeSignDocument( "application/json" )( Compile ).evaluated },
     Compile / storeSignJpegDocument := { storeSignDocument( "image/jpeg" )( Compile ).evaluated },
     Compile / storeSignPngDocument := { storeSignDocument( "image/png" )( Compile ).evaluated },
+    Compile / storeSignPdfDocument := { storeSignDocument( "application/pdf" )( Compile ).evaluated },
     Compile / profileForSigner := { findProfileForSigner( Compile ).evaluated },
     Compile / signersForDocument := { signersForDocumentTask( Compile ).evaluated }
   )
@@ -111,7 +115,7 @@ object UnrevokedSignedPlugin extends AutoPlugin {
     val hash = store.put( contentType, profileBytes ).assert
     us.transaction.createIdentityForSender( sol.Bytes32( hash.bytes ) )
 
-    log.info( s"The document at path '${filePath}' with hash '0x${hash.hex}' has been stored, and defined as the profile for sender address '0x${ssender.address.hex}' on contract at '0x${contractAddress.hex}'." )
+    log.info( s"The document at path '${filePath}' with hash '0x${hash.hex}' has been stored, and defined as the profile for sender address '0x${ssender.address.hex}' on contract at '0x${contractAddress}'." )
     hash
   }
 

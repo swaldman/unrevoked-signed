@@ -15,10 +15,10 @@ lazy val root = (project in file(".")).settings (
 )
 
 lazy val plugin = (project in file("plugin")).aggregate(root).dependsOn( root ).settings (
-  name                   := "unrevoked-signed-plugin",
-  sbtPlugin              := true,
-  publishTo              := findPublishTo( version.value ),
-  pomExtra               := createPomExtra( name.value ),
+  name      := "unrevoked-signed-plugin",
+  sbtPlugin := true,
+  publishTo := findPublishTo( version.value ),
+  pomExtra  := createPomExtra( name.value ),
   addSbtPlugin("com.mchange" % "sbt-ethereum" % "0.1.7-SNAPSHOT" changing())
 )
 
